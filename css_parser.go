@@ -1,7 +1,6 @@
 package css_parser
 
 import (
-	"fmt"
 	"sync"
 	"strings"
 )
