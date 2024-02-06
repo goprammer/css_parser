@@ -26,38 +26,6 @@ func NewCSS (s string) *CSS {
 	return css
 }
 
-func classify (s string) int {
-	s = strings.TrimSpace(s)
-	if len(s) == 0 {
-		return 0
-	}
-
-	switch s[0] {
-	case 46:
-		return 1
-	case 35:
-		return 2
-	default:
-		return 3
-	}
-}
-
-func makeKeyValMap (s string) map[string]string {
-	kvMap := make(map[string]string)
-	a1 := strings.Split(s, ";")
-	for _,e := range a1 {
-		val := removeComments(e)
-		a2 := strings.Split(val, ":")
-		if len(a2) != 2 {
-			continue
-		}
-
-		kvMap[strings.TrimSpace(a2[0])] = strings.TrimSpace(a2[1])
-	}
-
-	return kvMap 
-}
-
 func (css CSS) Parse (s string) {
 	s1 := strings.Split(s, "}")
 	for _,e := range s1 {
@@ -118,6 +86,38 @@ func (css CSS) GetID (id, property string) string {
 	}
 
 	return value
+}
+
+func classify (s string) int {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return 0
+	}
+
+	switch s[0] {
+	case 46:
+		return 1
+	case 35:
+		return 2
+	default:
+		return 3
+	}
+}
+
+func makeKeyValMap (s string) map[string]string {
+	kvMap := make(map[string]string)
+	a1 := strings.Split(s, ";")
+	for _,e := range a1 {
+		val := removeComments(e)
+		a2 := strings.Split(val, ":")
+		if len(a2) != 2 {
+			continue
+		}
+
+		kvMap[strings.TrimSpace(a2[0])] = strings.TrimSpace(a2[1])
+	}
+
+	return kvMap 
 }
 
 func removeComments (s string) string {
