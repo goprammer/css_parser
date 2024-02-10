@@ -23,13 +23,13 @@ type CSS struct {
 	MediaQueries []*Condition
 }
 
-func NewCSS (s string) *CSS {
+func NewCSS () *CSS {
 	css := new(CSS)
 	css.Element = make(map[string]CSSKeyVals)
 	css.ID = make(map[string]CSSKeyVals)
 	css.Class = make(map[string]CSSKeyVals)
 	css.MediaQueries = make([]*Condition, 0)
-	css.Parse(s)
+	
 	return css
 }
 
@@ -56,7 +56,8 @@ func NewMediaQuery (head, namespace string) *Condition {
 		i2 = strings.Index(head, ")")
 	}
 
-	condition.ConditionalCSS = NewCSS(removeCurlyBrackets(namespace))
+	condition.ConditionalCSS = NewCSS()
+	condition.ConditionalCSS.Parse(removeCurlyBrackets(namespace))
 
 	return condition
 }
@@ -147,9 +148,9 @@ func (css *CSS) getElement (element, property string) string {
 
 func (css *CSS) getNormal (id, class, element, property string) string {
 	if id != "" {
-		return css.getID(id, property)
+		return css.getID(removeClassifier(id), property)
 	} else if class != "" {
-		return css.getClass(class, property)
+		return css.getClass(removeClassifier(class), property)
 	} else if element != "" {
 		return css.getElement(element, property)
 	}

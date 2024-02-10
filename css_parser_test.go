@@ -4,11 +4,10 @@ import (
 	"testing"
 )
 
-// added printall method, improved media query, now handles multiple selectors properly
-
 func TestParser (t *testing.T) {
-	css := NewCSS(TestStr)
-	
+	css := NewCSS()
+	css.Parse(TestStr)
+
 	if css.Get("comment", "", "img", "margin-left", "") != "21px" {
 		t.Fatal("Comments were not handled correctly.")
 	}
