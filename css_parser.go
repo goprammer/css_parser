@@ -1,6 +1,7 @@
 package css_parser
 
 import (
+	"fmt"
 	"sync"
 	"strconv"
 	"strings"
@@ -32,10 +33,11 @@ func NewCSS (s string) *CSS {
 	return css
 }
 
-func NewMediaQuery (head, body string) *Condition {
+func NewMediaQuery (head, namespace string) *Condition {
 	condition := new(Condition)
 	i1 := strings.Index(head, "(")
 	i2 := strings.Index(head, ")")
+
 	for i1 != -1 && i2 != -1 {
 		rule := head[i1+1:i2]
 		arr := strings.Split(rule, ":")
@@ -54,44 +56,60 @@ func NewMediaQuery (head, body string) *Condition {
 		i2 = strings.Index(head, ")")
 	}
 
-	condition.ConditionalCSS = NewCSS(body)
+	condition.ConditionalCSS = NewCSS(removeCurlyBrackets(namespace))
 
 	return condition
 }
 
 func (css *CSS) Parse (s string) {
-	s1 := extractNamespaces(s)
-	for _,e := range s1 {
-		keyvals := strings.Split(e, "{")
-		if len(keyvals) < 2 {
+	namespaces := make([]string, 0)
+	for {
+		_, i2 := extractNamespace(s)
+		if i2 == -1 {
+			break
+		}
+
+		namespaces = append(namespaces, s[:i2+1])
+		s = s[i2+1:]
+	}
+
+	for _,e := range namespaces {
+		i := strings.Index(e, "{")
+		if i == -1 {
 			continue
 		}
 
-		if len(keyvals) == 3 && strings.Contains(keyvals[0], "@media") {
-			css.MediaQueries = append(css.MediaQueries, NewMediaQuery(keyvals[0], keyvals[1] + "{" + keyvals[2]))
+		selector := strings.TrimSpace(removeComments(e[:i]))
+		namespace := e[i:]
+
+		if strings.Contains(selector, "@media") {
+			// selector is actually a media query
+			css.MediaQueries = append(css.MediaQueries, NewMediaQuery(selector, namespace))
 			continue
 		}
 		
-		key := strings.TrimSpace(removeComments(keyvals[0]))
-		
-		classification := classify(key)
-		switch classification {
-		case 1:
-			css.Mu.Lock()
-			css.Class[key] = makeKeyValMap(keyvals[1])
-			css.Mu.Unlock()
-		case 2:
-			css.Mu.Lock()
-			css.ID[key] = makeKeyValMap(keyvals[1])
-			css.Mu.Unlock()
-		case 3:
-			css.Mu.Lock()
-			css.Element[key] = makeKeyValMap(keyvals[1])
-			css.Mu.Unlock()
-		default:
-			continue
+		selectors := splitSelectorString(selector)
+
+		for _,e := range selectors {
+			switch classify(e) {
+			case 1:
+				css.Mu.Lock()
+				css.Class[removeClassifier(e)] = makeKeyValMap(namespace)
+				css.Mu.Unlock()
+			case 2:
+				css.Mu.Lock()
+				css.ID[removeClassifier(e)] = makeKeyValMap(namespace)
+				css.Mu.Unlock()
+			case 3:
+				css.Mu.Lock()
+				css.Element[removeClassifier(e)] = makeKeyValMap(namespace)
+				css.Mu.Unlock()
+			default:
+				continue
+			}
 		}
 	}
+	
 }
 
 func (css *CSS) getID (id, property string) string {
@@ -146,7 +164,9 @@ func (css *CSS) Get (id, class, element, property, width string) string {
 
 		for _,e := range css.MediaQueries {
 			if e.MaxWidth > nWidth && e.MinWidth < nWidth {
-				answer = e.ConditionalCSS.Get(id, class, element, property, "")
+				if possibleAnswer := e.ConditionalCSS.Get(id, class, element, property, ""); possibleAnswer != "" {
+					answer = possibleAnswer
+				}
 			}
 		}
 
@@ -156,6 +176,28 @@ func (css *CSS) Get (id, class, element, property, width string) string {
 	}
 
 	return css.getNormal(id, class, element, property)
+}
+
+func (css *CSS) PrintAll ()  {
+	css.Mu.RLock()
+	defer css.Mu.RUnlock()
+	printType(css.ID)
+	printType(css.Class)
+	printType(css.Element)
+	for _,e := range css.MediaQueries {
+		fmt.Println("\n@media min-width:", e.MinWidth, " max-width:",e.MaxWidth)
+		e.ConditionalCSS.PrintAll()
+	}
+}
+
+func printType (cssType map[string]CSSKeyVals) {
+	for i,e := range cssType {
+		fmt.Println("-----", i, "-----")
+		for j,f := range e {
+			fmt.Println(j,":",f)
+		}
+		fmt.Println()
+	}
 }
 
 func classify (s string) int {
@@ -174,11 +216,58 @@ func classify (s string) int {
 	}
 }
 
+// Only job is to split by either or whitespace or comma
+func splitSelectorString (s string) []string {
+	result := make([]string, 0)
+	selectors := strings.Split(s, " ")
+	if len(selectors) == 1 {
+		selectors = strings.Split(s, ",")
+		if len(selectors) == 1 {
+			return selectors
+		}
+	}
+
+	for i := 0; i < len(selectors); i++ {
+		selectors[i] = removeCommas(strings.TrimSpace(selectors[i]))
+		if selectors[i] != "" {
+			result = append(result, selectors[i])
+		}
+	}
+
+	return result
+}
+
+func removeClassifier (s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+
+	if s[0] == 46 || s[0] == 35 {
+		return s[1:]
+	}
+
+	return s
+}
+
+func removeCommas (s string) string {
+	res := new(strings.Builder)
+	for i := 0; i < len(s); i++ {
+		if s[i] != 44 {
+			res.WriteByte(s[i])
+		}
+	}
+
+	return res.String()
+}
+
 func makeKeyValMap (s string) map[string]string {
 	kvMap := make(map[string]string)
+	s = removeCurlyBrackets(s)
+	
 	a1 := strings.Split(s, ";")
 	for _,e := range a1 {
-		val := removeComments(e)
+		val := strings.TrimSpace(removeComments(e))
+		
 		a2 := strings.Split(val, ":")
 		if len(a2) != 2 {
 			continue
@@ -211,10 +300,10 @@ func removeComments (s string) string {
 }
 
 func undoShorthand (kvMap map[string]string, shorthandProperty, val string) {
-	if len(val) < 2 {
+	if len(val) == 0 {
 		return
 	}
-
+	
 	if val[len(val)-1] == 59 {
 		val = val[:len(val)-1]
 	}
@@ -301,18 +390,27 @@ func extractNamespace (s string) (int, int) {
 	return i1, i2
 }
 
-func extractNamespaces (s string) []string {
-	answer := make([]string, 0)
-	i2 := len(s)
-	for {
-		_, i2 = extractNamespace(s)
-		if i2 == -1 {
+func removeCurlyBrackets (s string) string {
+	i1 := 0
+	i2 := 0
+
+	for i := 0; i < len(s)-1; i++ {
+		if s[i] == 123 {
+			i1 = i
 			break
 		}
-
-		answer = append(answer, s[:i2])
-		s = s[i2+1:]
 	}
 
-	return answer
+	for i := len(s)-1; i >=0; i-- {
+		if s[i] == 125 {
+			i2 = i
+			break
+		}
+	}
+
+	if i1 < i2 {
+		return s[i1+1:i2]
+	}
+	
+	return s	
 }
