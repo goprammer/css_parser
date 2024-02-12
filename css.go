@@ -18,7 +18,7 @@ const TestStr = `body{margin:0;padding:0;}img { -ms-interpolation-mode:bicubic; 
 	.w_290 {width: 290px;}
 	.h_200 {height: 200px !important; }
 	.floatRight { float: right !important; }
-	.desktop_hide #laptop_hide {mso-hide: all; display: none; max-height: 0px; overflow: hidden;}
+	.desktop_hide, #laptop_hide {mso-hide: all; display: none; max-height: 0px; overflow: hidden;}
 	.plr0 {padding-left: 0px !important; padding-right: 0px !important;} 
 	.plr10 {padding-left: 10px !important; padding-right: 10px !important;}
 	@media (max-width: 620px) {

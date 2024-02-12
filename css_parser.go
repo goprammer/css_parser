@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// Build a square bracket attribute matching system as well.
+// Test on what media queries with % are doing.
+
 type CSSKeyVals map[string]string
 
 type Condition struct {
@@ -217,15 +220,22 @@ func classify (s string) int {
 	}
 }
 
-// Only job is to split by either or whitespace or comma
+// splitSelectorString() currently only reads simple selectors. 
+// Ex simple: #idName
+
+// splitSelectorString() ignores attribute, compound and combinator selectors.
+// Ex attribute: [href^="https"] (only tags with href attribute whose value starts with "https")
+// Ex compound: div.className (only div elements with class="className")
+// Ex combinator: .footer td (only td element within footer class)
+
+// See full reference:
+// https://www.w3schools.com/cssref/css_selectors.php
+
 func splitSelectorString (s string) []string {
 	result := make([]string, 0)
-	selectors := strings.Split(s, " ")
+	selectors := strings.Split(s, ",")
 	if len(selectors) == 1 {
-		selectors = strings.Split(s, ",")
-		if len(selectors) == 1 {
-			return selectors
-		}
+		return selectors
 	}
 
 	for i := 0; i < len(selectors); i++ {
