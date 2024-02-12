@@ -1,7 +1,6 @@
 package css_parser
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -57,9 +56,7 @@ func TestParser (t *testing.T) {
 		t.Fatal("Multiple selectors were not handled correctly ahh.")
 	}
 
-	// Not this test, non-matching successfully passed to next possible match in hierarchy.
 	if css.Get("", "body", "body", "padding-left", "600") != "10px !important" {
-		fmt.Println(css.Get("body", "body", "body", "padding-left", "600"))
 		t.Fatal("A non-matching selector failed to pass the search down to the next lower selector in hierarchy.")
 	}
 }
