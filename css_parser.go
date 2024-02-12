@@ -150,15 +150,26 @@ func (css *CSS) getElement (element, property string) string {
 }
 
 func (css *CSS) getNormal (id, class, element, property string) string {
+	answer := ""
 	if id != "" {
-		return css.getID(removeClassifier(id), property)
-	} else if class != "" {
-		return css.getClass(removeClassifier(class), property)
-	} else if element != "" {
-		return css.getElement(element, property)
+		if answer = css.getID(removeClassifier(id), property); answer != "" {
+			return answer
+		}
 	}
 
-	return ""
+	if class != "" {
+		if answer = css.getClass(removeClassifier(class), property); answer != "" {
+			return answer
+		}
+	}
+
+	if element != "" {
+		if answer = css.getElement(element, property); answer != "" {
+			return answer
+		}
+	}
+
+	return answer
 }
 
 func (css *CSS) Get (id, class, element, property, width string) string {
