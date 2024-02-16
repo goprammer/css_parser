@@ -162,7 +162,7 @@ func (css *CSS) Get (id, class, element, property, width string) string {
 		nWidth := extractNumbers(width)
 
 		for _,e := range css.MediaQueries {
-			if e.MaxWidth >= nWidth && e.MinWidth =< nWidth {
+			if e.MaxWidth >= nWidth && e.MinWidth <= nWidth {
 				if possibleAnswer := e.ConditionalCSS.Get(id, class, element, property, ""); possibleAnswer != "" {
 					answer = possibleAnswer
 				}
