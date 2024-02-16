@@ -1,0 +1,56 @@
+article,aside,blockquote,body,dd,details,div,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,html,legend,menu,nav,ol,p,pre,section,summary,ul{
+	display:block;
+}
+
+area,datalist,head,iframe,link,meta,script,style,title {
+	display: none;
+}
+
+map,output,q {
+	display: inline; /* can't accept width or height */
+}
+
+img {
+	display: inline-block;
+}
+
+table {
+	display: table;
+}
+
+thead {
+	display: table-header-group;
+}
+
+tbody {
+	display: table-row-group;
+}
+
+tr {
+	display: table-row;
+}
+
+th {
+	display: table-cell;
+}
+
+td {
+	display: table-cell;
+	padding:1px;
+}
+
+tfoot {
+	display: table-footer-group;
+}
+
+col {
+	display: table-column;
+}
+
+colgroup {
+	display: table-column-group;
+}
+
+body {
+	margin:0;
+}

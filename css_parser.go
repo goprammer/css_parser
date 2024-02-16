@@ -95,25 +95,9 @@ func (css *CSS) Parse (s string) {
 		selectors := splitSelectorString(selector)
 
 		for _,e := range selectors {
-			switch classify(e) {
-			case 1:
-				css.Mu.Lock()
-				css.Class[removeClassifier(e)] = makeKeyValMap(namespace)
-				css.Mu.Unlock()
-			case 2:
-				css.Mu.Lock()
-				css.ID[removeClassifier(e)] = makeKeyValMap(namespace)
-				css.Mu.Unlock()
-			case 3:
-				css.Mu.Lock()
-				css.Element[removeClassifier(e)] = makeKeyValMap(namespace)
-				css.Mu.Unlock()
-			default:
-				continue
-			}
+			css.AppendKeyVals(e, namespace)
 		}
 	}
-	
 }
 
 func (css *CSS) getID (id, property string) string {
@@ -282,8 +266,38 @@ func removeCommas (s string) string {
 	return res.String()
 }
 
-func makeKeyValMap (s string) map[string]string {
+func (css *CSS) AppendKeyVals (selector, keyvalStr string) {
 	kvMap := make(map[string]string)
+	
+	switch classify(selector) {
+	case 1:
+		css.Mu.Lock()
+		tmp_kv_Map, ok := css.Class[removeClassifier(selector)]
+		if ok {
+			kvMap = tmp_kv_Map
+		}
+		css.Class[removeClassifier(selector)] = makeKeyValMap(kvMap, keyvalStr)
+		css.Mu.Unlock()
+	case 2:
+		css.Mu.Lock()
+		tmp_kv_Map, ok := css.ID[removeClassifier(selector)]
+		if ok {
+			kvMap = tmp_kv_Map
+		}
+		css.ID[removeClassifier(selector)] = makeKeyValMap(kvMap, keyvalStr)
+		css.Mu.Unlock()
+	case 3:
+		css.Mu.Lock()
+		tmp_kv_Map, ok := css.Element[removeClassifier(selector)]
+		if ok {
+			kvMap = tmp_kv_Map
+		}
+		css.Element[removeClassifier(selector)] = makeKeyValMap(kvMap, keyvalStr)
+		css.Mu.Unlock()
+	}
+}
+
+func makeKeyValMap (kvMap map[string]string, s string) map[string]string {
 	s = removeCurlyBrackets(s)
 	
 	a1 := strings.Split(s, ";")

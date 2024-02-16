@@ -1,11 +1,24 @@
 package css_parser
 
 import (
+	"io"
+	"os"
+	"fmt"
 	"testing"
 )
 
 func TestParser (t *testing.T) {
 	css := NewCSS()
+	f, err := os.Open("default.css")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		b, err := io.ReadAll(f)
+		if err != nil {
+			fmt.Println(err)
+		}
+		css.Parse(string(b))
+	}
 	css.Parse(TestStr)
 
 	if css.Get("comment", "", "img", "margin-left", "") != "21px" {
