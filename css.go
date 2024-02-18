@@ -6,6 +6,8 @@ const TestStr = `body{margin:0;padding:0;}img { -ms-interpolation-mode:bicubic; 
 				{
 					margin: 21px
 				}
+	p#complex {color:dodgerblue;}
+	#complex {color:red}
 	.inlineBlock {display: inline-block !important;} 
 	.block {display: block;} .tableCell {display: table-cell !important;}
 	.align_left {text-align: left !important;} 

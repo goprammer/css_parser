@@ -72,4 +72,6 @@ func TestParser (t *testing.T) {
 	if css.Get("", "body", "body", "padding-left", "600") != "10px !important" {
 		t.Fatal("A non-matching selector failed to pass the search down to the next lower selector in hierarchy.")
 	}
+
+	css.PrintAll()
 }

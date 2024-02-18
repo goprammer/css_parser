@@ -7,37 +7,50 @@ import (
 	"strings"
 )
 
-// Build a square bracket attribute matching system as well.
-// Test on what media queries with % are doing.
+// right most simple selector is initial key. 
+// reverse sort specificity score.
+// must clear lower score to continue to higher score.
+// goal today is to just set up working as before with new conditions struct standing keyvals.
+// then worry about setting keyvals according to rules and not overwritting, and getting
 
-type CSSKeyVals map[string]string
+type MatchStruct struct {
+	ID string
+	Classes []string
+	Elements []string
+}
 
-type Condition struct {
+type CSSKeyVals struct {
+	KeyValMap map[string]string
+	Match *MatchStruct
+	NotMatch *MatchStruct
+}
+
+type MediaQuery struct {
 	MinWidth int
 	MaxWidth int
-	ConditionalCSS *CSS
+	MediaQueryCSS *CSS
 }
 
 type CSS struct {
 	Mu sync.RWMutex
-	Element map[string] CSSKeyVals
-	ID map[string] CSSKeyVals
-	Class map[string] CSSKeyVals
-	MediaQueries []*Condition
+	Element map[string] []*CSSKeyVals
+	ID map[string] []*CSSKeyVals
+	Class map[string][]*CSSKeyVals
+	MediaQueries []*MediaQuery
 }
 
 func NewCSS () *CSS {
 	css := new(CSS)
-	css.Element = make(map[string]CSSKeyVals)
-	css.ID = make(map[string]CSSKeyVals)
-	css.Class = make(map[string]CSSKeyVals)
-	css.MediaQueries = make([]*Condition, 0)
+	css.Element = make(map[string][]*CSSKeyVals)
+	css.ID = make(map[string][]*CSSKeyVals)
+	css.Class = make(map[string][]*CSSKeyVals)
+	css.MediaQueries = make([]*MediaQuery, 0)
 	
 	return css
 }
 
-func NewMediaQuery (head, namespace string) *Condition {
-	condition := new(Condition)
+func NewMediaQuery (head, namespace string) *MediaQuery {
+	mq := new(MediaQuery)
 	i1 := strings.Index(head, "(")
 	i2 := strings.Index(head, ")")
 
@@ -48,9 +61,9 @@ func NewMediaQuery (head, namespace string) *Condition {
 			key := strings.ToLower(strings.TrimSpace(arr[0]))
 			val := strings.TrimSpace(arr[1])
 			if key == "min-width" {
-				condition.MinWidth = extractNumbers(val)
+				mq.MinWidth = extractNumbers(val)
 			} else if key == "max-width" {
-				condition.MaxWidth = extractNumbers(val)
+				mq.MaxWidth = extractNumbers(val)
 			}
 		}
 		
@@ -59,10 +72,10 @@ func NewMediaQuery (head, namespace string) *Condition {
 		i2 = strings.Index(head, ")")
 	}
 
-	condition.ConditionalCSS = NewCSS()
-	condition.ConditionalCSS.Parse(removeCurlyBrackets(namespace))
+	mq.MediaQueryCSS = NewCSS()
+	mq.MediaQueryCSS.Parse(removeCurlyBrackets(namespace))
 
-	return condition
+	return mq
 }
 
 func (css *CSS) Parse (s string) {
@@ -102,34 +115,67 @@ func (css *CSS) Parse (s string) {
 
 func (css *CSS) getID (id, property string) string {
 	css.Mu.RLock()
-	value, ok := css.ID[id][property]
+	keyvalArr, ok := css.ID[id]
 	css.Mu.RUnlock()
 	if !ok {
 		return ""
 	}
+	
+	value := ""
 
+	for _,e := range keyvalArr {
+		v, ok := e.KeyValMap[property]
+		if !ok {
+			continue
+		}
+
+		value = v
+	}
+	
 	return value
 }
 
 func (css *CSS) getClass (class, property string) string {
 	css.Mu.RLock()
-	value, ok := css.Class[class][property]
+	keyvalArr, ok := css.Class[class]
 	css.Mu.RUnlock()
 	if !ok {
 		return ""
 	}
 
+	value := ""
+
+	for _,e := range keyvalArr {
+		v, ok := e.KeyValMap[property]
+		if !ok {
+			continue
+		}
+
+		value = v
+	}
+	
 	return value
 }
 
 func (css *CSS) getElement (element, property string) string {
 	css.Mu.RLock()
-	value, ok := css.Element[element][property]
+	keyvalArr, ok := css.Element[element]
 	css.Mu.RUnlock()
 	if !ok {
 		return ""
 	}
+	
+	value := ""
 
+	for _,e := range keyvalArr {
+		v, ok := e.KeyValMap[property]
+		if !ok {
+			continue
+		}
+
+		value = v
+	}
+	
 	return value
 }
 
@@ -163,7 +209,7 @@ func (css *CSS) Get (id, class, element, property, width string) string {
 
 		for _,e := range css.MediaQueries {
 			if e.MaxWidth >= nWidth && e.MinWidth <= nWidth {
-				if possibleAnswer := e.ConditionalCSS.Get(id, class, element, property, ""); possibleAnswer != "" {
+				if possibleAnswer := e.MediaQueryCSS.Get(id, class, element, property, ""); possibleAnswer != "" {
 					answer = possibleAnswer
 				}
 			}
@@ -185,18 +231,20 @@ func (css *CSS) PrintAll ()  {
 	printType(css.Element)
 	for _,e := range css.MediaQueries {
 		fmt.Println("\n@media min-width:", e.MinWidth, " max-width:",e.MaxWidth)
-		e.ConditionalCSS.PrintAll()
+		e.MediaQueryCSS.PrintAll()
 	}
 }
 
-func printType (cssType map[string]CSSKeyVals) {
-	for i,e := range cssType {
+func printType (cssType map[string][]*CSSKeyVals) {
+	for i,keyvalArr := range cssType {
 		fmt.Println("-----", i, "-----")
-		for j,f := range e {
-			fmt.Println(j,":",f)
-		}
-		fmt.Println()
+		for _,csskv := range keyvalArr {
+			for j, f := range csskv.KeyValMap {
+				fmt.Println(j,":",f)
+			}
+		}	
 	}
+	
 }
 
 func classify (s string) int {
@@ -267,39 +315,46 @@ func removeCommas (s string) string {
 }
 
 func (css *CSS) AppendKeyVals (selector, keyvalStr string) {
-	kvMap := make(map[string]string)
+	keyvalArr := make([]*CSSKeyVals,0)
 	
 	switch classify(selector) {
 	case 1:
 		css.Mu.Lock()
 		tmp_kv_Map, ok := css.Class[removeClassifier(selector)]
 		if ok {
-			kvMap = tmp_kv_Map
+			keyvalArr = tmp_kv_Map
 		}
-		css.Class[removeClassifier(selector)] = makeKeyValMap(kvMap, keyvalStr)
+		cleanSelector := removeClassifier(selector)
+		css.Class[cleanSelector] = makeKeyValMap(keyvalArr, keyvalStr)
 		css.Mu.Unlock()
 	case 2:
 		css.Mu.Lock()
 		tmp_kv_Map, ok := css.ID[removeClassifier(selector)]
 		if ok {
-			kvMap = tmp_kv_Map
+			keyvalArr = tmp_kv_Map
 		}
-		css.ID[removeClassifier(selector)] = makeKeyValMap(kvMap, keyvalStr)
+		cleanSelector := removeClassifier(selector)
+		css.ID[cleanSelector] = makeKeyValMap(keyvalArr, keyvalStr)
 		css.Mu.Unlock()
 	case 3:
 		css.Mu.Lock()
 		tmp_kv_Map, ok := css.Element[removeClassifier(selector)]
 		if ok {
-			kvMap = tmp_kv_Map
+			keyvalArr = tmp_kv_Map
 		}
-		css.Element[removeClassifier(selector)] = makeKeyValMap(kvMap, keyvalStr)
+		cleanSelector := removeClassifier(selector)
+		css.Element[cleanSelector] = makeKeyValMap(keyvalArr, keyvalStr)
 		css.Mu.Unlock()
 	}
 }
 
-func makeKeyValMap (kvMap map[string]string, s string) map[string]string {
+// it might ovewrite at first
+// pointer should make return unecessary
+func makeKeyValMap (keyvalArr []*CSSKeyVals, s string) []*CSSKeyVals {
 	s = removeCurlyBrackets(s)
-	
+	ckv := new(CSSKeyVals)
+	ckv.KeyValMap = make(map[string]string)
+
 	a1 := strings.Split(s, ";")
 	for _,e := range a1 {
 		val := strings.TrimSpace(removeComments(e))
@@ -312,15 +367,16 @@ func makeKeyValMap (kvMap map[string]string, s string) map[string]string {
 		property := strings.TrimSpace(a2[0])
 		pVal := strings.TrimSpace(a2[1])
 		if property == "padding" {
-			undoShorthand(kvMap, property, pVal)
+			undoShorthand(ckv.KeyValMap, property, pVal)
 		} else if property == "margin" {
-			undoShorthand(kvMap, property, pVal)
+			undoShorthand(ckv.KeyValMap, property, pVal)
 		} else {
-			kvMap[property] = pVal
+			ckv.KeyValMap[property] = pVal
 		}
 	}
 
-	return kvMap 
+	keyvalArr = append(keyvalArr, ckv)
+	return keyvalArr
 }
 
 func removeComments (s string) string {
